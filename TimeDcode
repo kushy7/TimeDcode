@@ -1,0 +1,125 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+from datetime import datetime, timezone
+
+class TimeDecoderApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Time Decode - Simple")
+        self.root.geometry("600x400")
+        
+        # --- FIX 1: Remove hardcoded text colors that break in Dark Mode ---
+        style = ttk.Style()
+        style.configure("TLabel", font=("Helvetica", 10))
+        style.configure("TButton", font=("Helvetica", 10, "bold"))
+        # Removed "foreground='#333'" to allow system default (White in Dark Mode)
+        style.configure("Result.TLabel", font=("Consolas", 12)) 
+
+        main_frame = ttk.Frame(root, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Input
+        ttk.Label(main_frame, text="Input Timestamp:").pack(anchor=tk.W)
+        self.input_var = tk.StringVar()
+        self.entry_input = ttk.Entry(main_frame, textvariable=self.input_var, width=50, font=("Consolas", 11))
+        self.entry_input.pack(fill=tk.X, pady=(5, 15))
+
+        # Format
+        ttk.Label(main_frame, text="Source Format:").pack(anchor=tk.W)
+        
+        # --- FIX 2: Ensure default value matches the list EXACTLY ---
+        self.format_var = tk.StringVar(value="Unix Hex 32-bit Big Endian")
+        
+        formats = [
+            "Unix Hex 32-bit Big Endian",
+            "Unix Hex 32-bit Little Endian",
+            "Unix Milliseconds Hex",
+            "Unix Milliseconds (Decimal)",
+            "Windows FILETIME Big Endian",
+            "Windows FILETIME Little Endian"
+        ]
+        self.combo_format = ttk.Combobox(main_frame, textvariable=self.format_var, values=formats, state="readonly")
+        self.combo_format.pack(fill=tk.X, pady=(5, 15))
+
+        # Button
+        self.btn_convert = ttk.Button(main_frame, text="CONVERT", command=self.convert_time)
+        self.btn_convert.pack(fill=tk.X, pady=(10, 20))
+
+        # Output
+        self.lbl_utc = ttk.Label(main_frame, text="UTC Time: --", style="Result.TLabel")
+        self.lbl_utc.pack(anchor=tk.W, pady=5)
+
+        self.lbl_local = ttk.Label(main_frame, text="Local Time: --", style="Result.TLabel")
+        self.lbl_local.pack(anchor=tk.W, pady=5)
+
+    def get_unix_timestamp(self, input_str, fmt):
+        print(f"DEBUG: Attempting to convert '{input_str}' using format '{fmt}'") # Debug print
+        
+        clean_input = input_str.strip().replace("0x", "").replace(" ", "").replace(":", "")
+        
+        # Handle odd-length hex strings for bytes.fromhex (pad with 0)
+        if len(clean_input) % 2 != 0:
+            clean_input = "0" + clean_input
+
+        try:
+            if fmt == "Unix Hex 32-bit Big Endian":
+                return float(int(clean_input, 16))
+
+            elif fmt == "Unix Hex 32-bit Little Endian":
+                byte_vals = bytes.fromhex(clean_input)
+                reversed_hex = byte_vals[::-1].hex()
+                return float(int(reversed_hex, 16))
+
+            elif fmt == "Unix Milliseconds Hex":
+                val = int(clean_input, 16)
+                return val / 1000.0
+
+            elif fmt == "Unix Milliseconds (Decimal)":
+                val = int(input_str.strip()) # Use original string for decimal
+                return val / 1000.0
+
+            elif fmt == "Windows FILETIME Big Endian":
+                val = int(clean_input, 16)
+                return self.windows_filetime_to_unix(val)
+
+            elif fmt == "Windows FILETIME Little Endian":
+                byte_vals = bytes.fromhex(clean_input)
+                reversed_hex = byte_vals[::-1].hex()
+                val = int(reversed_hex, 16)
+                return self.windows_filetime_to_unix(val)
+            
+            else:
+                raise ValueError(f"Unknown format selected: {fmt}")
+
+        except Exception as e:
+            print(f"DEBUG ERROR: {e}")
+            raise e
+
+    def windows_filetime_to_unix(self, filetime_val):
+        return (filetime_val - 116444736000000000) / 10_000_000
+
+    def convert_time(self):
+        input_val = self.input_var.get()
+        fmt_selection = self.format_var.get()
+
+        if not input_val:
+            messagebox.showwarning("Warning", "Please enter a timestamp value.")
+            return
+
+        try:
+            epoch_seconds = self.get_unix_timestamp(input_val, fmt_selection)
+            print(f"DEBUG: Calculated Epoch Seconds: {epoch_seconds}")
+
+            dt_utc = datetime.fromtimestamp(epoch_seconds, timezone.utc)
+            dt_local = datetime.fromtimestamp(epoch_seconds).astimezone()
+
+            self.lbl_utc.config(text=f"UTC Time:   {dt_utc.strftime('%Y-%m-%d %H:%M:%S.%f')}")
+            self.lbl_local.config(text=f"Local Time: {dt_local.strftime('%Y-%m-%d %H:%M:%S.%f')}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to decode.\n{str(e)}")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = TimeDecoderApp(root)
+    root.mainloop()
