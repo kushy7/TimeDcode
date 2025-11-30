@@ -6,14 +6,15 @@ from zoneinfo import ZoneInfo, available_timezones
 class TimeDecoderApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Time Decode - Simple")
+        self.root.title("Time Decoder")
         self.root.geometry("600x750") # Taller to fit the scroll area
         self.root.resizable(True, True) # Allow resizing
         
         style = ttk.Style()
         style.configure("TLabel", font=("Helvetica", 10))
         style.configure("TButton", font=("Helvetica", 10, "bold"))
-        style.configure("Result.TLabel", font=("Consolas", 12)) 
+        style.configure("Result.TLabel", font=("Consolas", 12))
+        style.configure("Result.TEntry", font=("Consolas", 12)) 
 
         # Main container
         main_frame = ttk.Frame(root, padding="20")
@@ -66,14 +67,29 @@ class TimeDecoderApp:
         # ==========================================
         # SECTION 3: SINGLE RESULT OUTPUT
         # ==========================================
-        self.lbl_utc = ttk.Label(main_frame, text="UTC Time:    --", style="Result.TLabel")
-        self.lbl_utc.pack(anchor=tk.W, pady=2)
+        # UTC Time display
+        utc_frame = ttk.Frame(main_frame)
+        utc_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(utc_frame, text="UTC Time:", style="Result.TLabel").pack(side=tk.LEFT)
+        self.entry_utc = ttk.Entry(utc_frame, state='readonly', style="Result.TEntry", width=40)
+        self.entry_utc.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        self.entry_utc.insert(0, "--")
 
-        self.lbl_local = ttk.Label(main_frame, text="Local Time:  --", style="Result.TLabel")
-        self.lbl_local.pack(anchor=tk.W, pady=2)
+        # Local Time display
+        local_frame = ttk.Frame(main_frame)
+        local_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(local_frame, text="Local Time:", style="Result.TLabel").pack(side=tk.LEFT)
+        self.entry_local = ttk.Entry(local_frame, state='readonly', style="Result.TEntry", width=40)
+        self.entry_local.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        self.entry_local.insert(0, "--")
 
-        self.lbl_target = ttk.Label(main_frame, text="Target Time: --", style="Result.TLabel", foreground="#007AFF")
-        self.lbl_target.pack(anchor=tk.W, pady=2)
+        # Target Time display
+        target_frame = ttk.Frame(main_frame)
+        target_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(target_frame, text="Target Time:", style="Result.TLabel", foreground="#007AFF").pack(side=tk.LEFT)
+        self.entry_target = ttk.Entry(target_frame, state='readonly', style="Result.TEntry", width=40)
+        self.entry_target.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        self.entry_target.insert(0, "--")
 
         # ==========================================
         # SECTION 4: GUESS RESULTS LOG
@@ -145,9 +161,21 @@ class TimeDecoderApp:
             except:
                 target_str = "Timezone Error"
 
-            self.lbl_utc.config(text=f"UTC Time:    {dt_utc.strftime('%Y-%m-%d %H:%M:%S.%f')}")
-            self.lbl_local.config(text=f"Local Time:  {dt_local.strftime('%Y-%m-%d %H:%M:%S.%f %Z')}")
-            self.lbl_target.config(text=f"Target Time: {target_str}")
+            # Update Entry widgets with time values (selectable for copy-paste)
+            self.entry_utc.config(state='normal')
+            self.entry_utc.delete(0, tk.END)
+            self.entry_utc.insert(0, dt_utc.strftime('%Y-%m-%d %H:%M:%S.%f'))
+            self.entry_utc.config(state='readonly')
+            
+            self.entry_local.config(state='normal')
+            self.entry_local.delete(0, tk.END)
+            self.entry_local.insert(0, dt_local.strftime('%Y-%m-%d %H:%M:%S.%f %Z'))
+            self.entry_local.config(state='readonly')
+            
+            self.entry_target.config(state='normal')
+            self.entry_target.delete(0, tk.END)
+            self.entry_target.insert(0, target_str)
+            self.entry_target.config(state='readonly')
         
         except Exception as e:
             messagebox.showerror("Error", f"Failed to decode.\n{str(e)}")
