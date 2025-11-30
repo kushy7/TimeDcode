@@ -7,29 +7,32 @@ class TimeDecoderApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Time Decode - Simple")
-        self.root.geometry("600x580") # Increased height for new button
+        self.root.geometry("600x750") # Taller to fit the scroll area
+        self.root.resizable(True, True) # Allow resizing
         
         style = ttk.Style()
         style.configure("TLabel", font=("Helvetica", 10))
         style.configure("TButton", font=("Helvetica", 10, "bold"))
         style.configure("Result.TLabel", font=("Consolas", 12)) 
 
+        # Main container
         main_frame = ttk.Frame(root, padding="20")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # 1. Input Timestamp
+        # ==========================================
+        # SECTION 1: INPUTS
+        # ==========================================
         ttk.Label(main_frame, text="Input Timestamp:").pack(anchor=tk.W)
         self.input_var = tk.StringVar()
         self.entry_input = ttk.Entry(main_frame, textvariable=self.input_var, width=50, font=("Consolas", 11))
-        self.entry_input.pack(fill=tk.X, pady=(5, 15))
+        self.entry_input.pack(fill=tk.X, pady=(5, 10))
 
-        # 2. Source Format Selection
-        ttk.Label(main_frame, text="Source Format:").pack(anchor=tk.W)
+        ttk.Label(main_frame, text="Source Format (for Single Convert):").pack(anchor=tk.W)
         self.format_var = tk.StringVar(value="Unix Hex 32-bit Big Endian")
         
-        # DEFINED FORMATS LIST (Used for dropdown AND guessing)
+        # DEFINED FORMATS LIST
         self.formats = [
-            "Unix Seconds (Decimal)",  # <--- NEW ADDITION
+            "Unix Seconds (Decimal)",
             "Unix Hex 32-bit Big Endian",
             "Unix Hex 32-bit Little Endian",
             "Unix Milliseconds Hex",
@@ -39,9 +42,8 @@ class TimeDecoderApp:
         ]
         
         self.combo_format = ttk.Combobox(main_frame, textvariable=self.format_var, values=self.formats, state="readonly")
-        self.combo_format.pack(fill=tk.X, pady=(5, 15))
+        self.combo_format.pack(fill=tk.X, pady=(5, 10))
 
-        # 3. Target Timezone Selection
         ttk.Label(main_frame, text="Optional Target Timezone:").pack(anchor=tk.W)
         self.available_zones = sorted(list(available_timezones()))
         default_tz = "America/Los_Angeles" if "America/Los_Angeles" in self.available_zones else self.available_zones[0]
@@ -49,71 +51,74 @@ class TimeDecoderApp:
         self.combo_tz = ttk.Combobox(main_frame, textvariable=self.tz_var, values=self.available_zones, height=10)
         self.combo_tz.pack(fill=tk.X, pady=(5, 20))
 
-        # 4. Action Buttons
+        # ==========================================
+        # SECTION 2: ACTIONS
+        # ==========================================
         btn_frame = ttk.Frame(main_frame)
         btn_frame.pack(fill=tk.X, pady=(0, 20))
         
-        # Standard Convert
         self.btn_convert = ttk.Button(btn_frame, text="CONVERT (Single)", command=self.convert_time)
         self.btn_convert.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
 
-        # Guess / Check All
         self.btn_guess = ttk.Button(btn_frame, text="GUESS / CHECK ALL", command=self.guess_all_formats)
         self.btn_guess.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(5, 0))
 
-        # 5. Output Section
+        # ==========================================
+        # SECTION 3: SINGLE RESULT OUTPUT
+        # ==========================================
         self.lbl_utc = ttk.Label(main_frame, text="UTC Time:    --", style="Result.TLabel")
-        self.lbl_utc.pack(anchor=tk.W, pady=5)
+        self.lbl_utc.pack(anchor=tk.W, pady=2)
 
         self.lbl_local = ttk.Label(main_frame, text="Local Time:  --", style="Result.TLabel")
-        self.lbl_local.pack(anchor=tk.W, pady=5)
+        self.lbl_local.pack(anchor=tk.W, pady=2)
 
         self.lbl_target = ttk.Label(main_frame, text="Target Time: --", style="Result.TLabel", foreground="#007AFF")
-        self.lbl_target.pack(anchor=tk.W, pady=5)
+        self.lbl_target.pack(anchor=tk.W, pady=2)
+
+        # ==========================================
+        # SECTION 4: GUESS RESULTS LOG
+        # ==========================================
+        ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=20)
+        
+        ttk.Label(main_frame, text="Guess Results (Matches between 1970 - 2040):", font=("Helvetica", 10, "bold")).pack(anchor=tk.W, pady=(0, 5))
+        
+        # Scrollable Text Area
+        self.txt_guess = scrolledtext.ScrolledText(main_frame, height=10, state='disabled', font=("Consolas", 10))
+        self.txt_guess.pack(fill=tk.BOTH, expand=True)
 
     def get_unix_timestamp(self, input_str, fmt):
         clean_input = input_str.strip().replace("0x", "").replace(" ", "").replace(":", "")
-        # Pad odd-length hex strings
         if len(clean_input) % 2 != 0: clean_input = "0" + clean_input
 
         try:
             if fmt == "Unix Seconds (Decimal)":
                 return float(int(input_str.strip()))
-            
             elif fmt == "Unix Hex 32-bit Big Endian":
                 return float(int(clean_input, 16))
-            
             elif fmt == "Unix Hex 32-bit Little Endian":
                 byte_vals = bytes.fromhex(clean_input)
                 return float(int(byte_vals[::-1].hex(), 16))
-            
             elif fmt == "Unix Milliseconds Hex":
                 return int(clean_input, 16) / 1000.0
-            
             elif fmt == "Unix Milliseconds (Decimal)":
                 return int(input_str.strip()) / 1000.0
-            
             elif fmt == "Windows FILETIME Big Endian":
                 return self.windows_filetime_to_unix(int(clean_input, 16))
-            
             elif fmt == "Windows FILETIME Little Endian":
                 byte_vals = bytes.fromhex(clean_input)
                 return self.windows_filetime_to_unix(int(byte_vals[::-1].hex(), 16))
-            
             else:
                 raise ValueError(f"Unknown format: {fmt}")
         except Exception:
-            # Re-raise so the caller knows it failed
             raise ValueError(f"Conversion failed for {fmt}")
 
     def windows_filetime_to_unix(self, filetime_val):
-        # 11,644,473,600 seconds from 1601 to 1970
         return (filetime_val - 116444736000000000) / 10_000_000
 
     def convert_time(self):
-        self._perform_conversion(self.format_var.get())
+        self._perform_single_conversion(self.format_var.get())
 
-    def _perform_conversion(self, fmt_selection):
+    def _perform_single_conversion(self, fmt_selection):
         input_val = self.input_var.get()
         target_tz_name = self.tz_var.get()
 
@@ -123,10 +128,10 @@ class TimeDecoderApp:
 
         try:
             epoch_seconds = self.get_unix_timestamp(input_val, fmt_selection)
-
-            # Sanity check for extremely large/small years to avoid crashing datetime
-            if epoch_seconds > 32503680000 or epoch_seconds < -30610224000: 
-                 raise ValueError("Resulting date is out of supported bounds (Year 1000-3000)")
+            
+            # Sanity Check
+            if epoch_seconds > 32503680000 or epoch_seconds < -30610224000:
+                 raise ValueError("Date out of bounds")
 
             dt_utc = datetime.fromtimestamp(epoch_seconds, timezone.utc)
             dt_local = datetime.fromtimestamp(epoch_seconds).astimezone()
@@ -136,11 +141,10 @@ class TimeDecoderApp:
                     dt_target = dt_utc.astimezone(ZoneInfo(target_tz_name))
                     target_str = dt_target.strftime('%Y-%m-%d %H:%M:%S.%f %Z')
                 else:
-                    target_str = "Invalid Timezone Selected"
-            except Exception:
+                    target_str = "Invalid Timezone"
+            except:
                 target_str = "Timezone Error"
 
-            # Display
             self.lbl_utc.config(text=f"UTC Time:    {dt_utc.strftime('%Y-%m-%d %H:%M:%S.%f')}")
             self.lbl_local.config(text=f"Local Time:  {dt_local.strftime('%Y-%m-%d %H:%M:%S.%f %Z')}")
             self.lbl_target.config(text=f"Target Time: {target_str}")
@@ -154,45 +158,37 @@ class TimeDecoderApp:
             messagebox.showwarning("Warning", "Please enter a timestamp value to guess.")
             return
 
-        valid_results = []
+        # Enable text box for writing
+        self.txt_guess.config(state='normal')
+        self.txt_guess.delete('1.0', tk.END) # Clear previous results
+        
+        matches_found = 0
+        
+        self.txt_guess.insert(tk.END, f"Scanning input: '{input_val}'\n")
+        self.txt_guess.insert(tk.END, "="*50 + "\n")
 
-        # Iterate through all known formats
         for fmt in self.formats:
             try:
                 epoch = self.get_unix_timestamp(input_val, fmt)
                 
-                # FILTER: Only show "Human Readable" dates
-                # We define this as dates between Year 1970 and Year 2040
-                # 1970 = 0, 2040 = approx 2.2 billion seconds
+                # FILTER: Only show "Human Readable" dates (1970 - 2040)
                 if 0 <= epoch <= 2208988800:
                     dt_obj = datetime.fromtimestamp(epoch, timezone.utc)
-                    valid_results.append((fmt, dt_obj.strftime('%Y-%m-%d %H:%M:%S UTC')))
+                    time_str = dt_obj.strftime('%Y-%m-%d %H:%M:%S UTC')
+                    
+                    # Formatting the output block
+                    self.txt_guess.insert(tk.END, f"Format: {fmt}\n")
+                    self.txt_guess.insert(tk.END, f"Result: {time_str}\n")
+                    self.txt_guess.insert(tk.END, "-"*30 + "\n")
+                    matches_found += 1
             except:
                 continue
 
-        # Show results in a new window
-        self.show_guess_results(valid_results)
-
-    def show_guess_results(self, results):
-        # Create a popup window
-        top = tk.Toplevel(self.root)
-        top.title("Guess Results")
-        top.geometry("600x400")
-
-        lbl = ttk.Label(top, text=f"Found {len(results)} potential match(es) (Years 1970-2040):", font=("Helvetica", 10, "bold"))
-        lbl.pack(pady=10)
-
-        # Scrollable text area
-        text_area = scrolledtext.ScrolledText(top, width=70, height=15, font=("Consolas", 11))
-        text_area.pack(padx=10, pady=5)
-
-        if not results:
-            text_area.insert(tk.END, "No valid timestamps found for this input.")
-        else:
-            for fmt, time_str in results:
-                text_area.insert(tk.END, f"Format: {fmt}\nResult: {time_str}\n{'-'*50}\n")
+        if matches_found == 0:
+            self.txt_guess.insert(tk.END, "No valid timestamps found within years 1970-2040.\n")
         
-        text_area.configure(state='disabled') # Make read-only
+        # Disable text box to prevent user editing
+        self.txt_guess.config(state='disabled')
 
 if __name__ == "__main__":
     root = tk.Tk()
