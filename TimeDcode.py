@@ -45,9 +45,23 @@ class TimeDecoderApp:
         self.combo_format = ttk.Combobox(main_frame, textvariable=self.format_var, values=self.formats, state="readonly")
         self.combo_format.pack(fill=tk.X, pady=(5, 10))
 
+        # 3. Target Timezone Selection
         ttk.Label(main_frame, text="Optional Target Timezone:").pack(anchor=tk.W)
+        
+        # Get zones
         self.available_zones = sorted(list(available_timezones()))
-        default_tz = "America/Los_Angeles" if "America/Los_Angeles" in self.available_zones else self.available_zones[0]
+        
+        # SAFETY CHECK: If list is empty (common on Windows without tzdata), fallback to UTC
+        if self.available_zones:
+            if "America/Los_Angeles" in self.available_zones:
+                default_tz = "America/Los_Angeles"
+            else:
+                default_tz = self.available_zones[0]
+        else:
+            # Fallback for Windows if tzdata is missing
+            self.available_zones = ["UTC"]
+            default_tz = "UTC"
+            
         self.tz_var = tk.StringVar(value=default_tz)
         self.combo_tz = ttk.Combobox(main_frame, textvariable=self.tz_var, values=self.available_zones, height=10)
         self.combo_tz.pack(fill=tk.X, pady=(5, 20))
